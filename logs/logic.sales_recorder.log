@@ -1,0 +1,11 @@
+2025-05-23 00:54:14,464 [logic.sales_recorder] INFO: Recorded sale: data\202505\sales_20250523_005414.json
+2025-05-23 00:54:14,472 [logic.sales_recorder] ERROR: Inventory update failed: save_csv() missing 1 required positional argument: 'rows'
+Traceback (most recent call last):
+  File "C:\sakatsu_pos\logic\sales_recorder.py", line 75, in record_sale
+    res = updater.update_from_record(str(file_path))
+  File "C:\sakatsu_pos\nextengine\inventory_updater.py", line 57, in update_from_record
+    csv_data, valid = self.build_csv(record)
+                      ~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\sakatsu_pos\nextengine\inventory_updater.py", line 41, in build_csv
+    writer = save_csv(output)
+TypeError: save_csv() missing 1 required positional argument: 'rows'

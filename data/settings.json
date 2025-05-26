@@ -1,0 +1,10 @@
+{
+  "hardware": {
+    "printer_model": "Epson TM-T30III",
+    "printer_port": "/dev/usb/lp0",
+    "cash_drawer_port": "/dev/ttyUSB0",
+    "display_type": "USB-HID LCD"
+  },
+  "log_level": "INFO",
+  "api_timeout": 30
+}

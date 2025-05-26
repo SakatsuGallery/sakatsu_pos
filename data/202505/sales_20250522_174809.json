@@ -1,0 +1,20 @@
+{
+  "transaction_id": "20250522_174809",
+  "timestamp": "2025-05-22T17:48:09.620826",
+  "cart": [
+    {
+      "goods_id": "",
+      "name": "hii",
+      "price": 800,
+      "quantity": 1
+    }
+  ],
+  "total_due": 800,
+  "payments": [
+    {
+      "method": "クレカ",
+      "amount": 800
+    }
+  ],
+  "change": 0
+}

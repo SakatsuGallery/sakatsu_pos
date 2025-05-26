@@ -1,0 +1,5 @@
+# Python package requirements for Sakatsu_POS
+requests>=2.32.0
+python-dotenv>=1.0.1
+pyserial>=3.5
+pytest>=8.2.0

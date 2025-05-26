@@ -1,0 +1,26 @@
+{
+  "transaction_id": "20250522_174259",
+  "timestamp": "2025-05-22T17:42:59.239138",
+  "cart": [
+    {
+      "goods_id": "",
+      "name": "dddd",
+      "price": 900,
+      "quantity": 1
+    },
+    {
+      "goods_id": "",
+      "name": "de",
+      "price": 500,
+      "quantity": 1
+    }
+  ],
+  "total_due": 1220,
+  "payments": [
+    {
+      "method": "クレカ",
+      "amount": 1220
+    }
+  ],
+  "change": 0
+}

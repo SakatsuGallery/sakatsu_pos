@@ -1,0 +1,20 @@
+{
+  "transaction_id": "20250522_231223",
+  "timestamp": "2025-05-22T23:12:23.098902",
+  "cart": [
+    {
+      "goods_id": "",
+      "name": "ddd",
+      "price": 3000,
+      "quantity": 1
+    }
+  ],
+  "total_due": 2700,
+  "payments": [
+    {
+      "method": "現金",
+      "amount": 3000.0
+    }
+  ],
+  "change": 300
+}

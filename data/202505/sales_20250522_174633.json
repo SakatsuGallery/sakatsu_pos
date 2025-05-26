@@ -1,0 +1,20 @@
+{
+  "transaction_id": "20250522_174633",
+  "timestamp": "2025-05-22T17:46:33.144086",
+  "cart": [
+    {
+      "goods_id": "",
+      "name": "frr",
+      "price": 5100,
+      "quantity": 1
+    }
+  ],
+  "total_due": 5100,
+  "payments": [
+    {
+      "method": "現金",
+      "amount": 5100
+    }
+  ],
+  "change": 0
+}

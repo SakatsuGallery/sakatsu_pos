@@ -1,0 +1,20 @@
+{
+  "transaction_id": "20250522_175718",
+  "timestamp": "2025-05-22T17:57:18.637508",
+  "cart": [
+    {
+      "goods_id": "",
+      "name": "de",
+      "price": 600,
+      "quantity": 1
+    }
+  ],
+  "total_due": 600,
+  "payments": [
+    {
+      "method": "QR",
+      "amount": 600
+    }
+  ],
+  "change": 0
+}
