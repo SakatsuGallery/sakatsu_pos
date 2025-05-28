@@ -24,27 +24,28 @@ class SalesUploader:
         pattern_id: Next Engine 側の受注一括登録パターンID
         wait_flag: メイン機能過負荷時の挙動 (1:エラーにせず実行)
         """
-        # 環境変数の読み込み
+        # Load environment variables
         load_dotenv(token_env)
-        # 大文字・小文字両対応でトークン取得
-        self.access_token = os.getenv("ACCESS_TOKEN") or os.getenv("access_token")
-        self.refresh_token = os.getenv("REFRESH_TOKEN") or os.getenv("refresh_token")
+        # Use Next Engine specific variable names
+        self.access_token = os.getenv("NE_ACCESS_TOKEN") or os.getenv("ne_access_token")
+        self.refresh_token = os.getenv("NE_REFRESH_TOKEN") or os.getenv("ne_refresh_token")
         if not self.access_token:
-            raise RuntimeError(f"ACCESS_TOKEN not found in {token_env}")
+            raise RuntimeError(f"NE_ACCESS_TOKEN not found in {token_env}")
+        if not self.refresh_token:
+            raise RuntimeError(f"NE_REFRESH_TOKEN not found in {token_env}")
 
         self.pattern_id = pattern_id
         self.wait_flag = wait_flag
 
     def build_csv(self, record: dict) -> str:
         """
-        JSON record を受注CSV文字列に変換。
-        必要なカラムを CSV ヘッダーとして定義し、その順序で出力します。
-        ヘッダー例: 店舗伝票番号,受注日,受注名,支払方法,合計金額,商品名,商品コード,商品価格,受注数量
+        Convert JSON record to CSV string for order upload.
+        Headers: 店舗伝票番号,受注日,受注名,支払方法,合計金額,商品名,商品コード,商品価格,受注数量
         """
         output = io.StringIO()
         writer = csv.writer(output)
 
-        # ヘッダー行
+        # Header row
         headers = [
             "店舗伝票番号",
             "受注日",
@@ -58,39 +59,34 @@ class SalesUploader:
         ]
         writer.writerow(headers)
 
-        # データ行
         tx_id = record.get("transaction_id")
-        # ISO 8601 ⽂字列→datetime→指定フォーマット文字列
         dt_obj = datetime.fromisoformat(record.get("timestamp"))
         dt = dt_obj.strftime("%Y/%m/%d %H:%M:%S")
 
         payments = record.get("payments", [])
-        payment_method = payments[0]["method"] if payments else ""
+        payment_method = payments[0].get("method", "") if payments else ""
         total = int(record.get("total_due", 0))
 
         for item in record.get("cart", []):
-            writer.writerow(
-                [
-                    tx_id,
-                    dt,
-                    tx_id,
-                    payment_method,
-                    total,
-                    item.get("name"),
-                    item.get("code", item.get("name")),
-                    int(item.get("price", 0)),
-                    item.get("quantity", 1),
-                ]
-            )
+            writer.writerow([
+                tx_id,
+                dt,
+                tx_id,
+                payment_method,
+                total,
+                item.get("name"),
+                item.get("code", item.get("name")),
+                int(item.get("price", 0)),
+                item.get("quantity", 1),
+            ])
 
         return output.getvalue()
 
     def upload_record(self, json_path: str) -> dict:
         """
-        単一の JSON 売上ファイルをアップロード。
-        成功時はレスポンス JSON を返します。
+        Upload a single JSON sales file.
+        Returns response JSON on success.
         """
-        # JSON 読み込みは load_json(path) を利用
         record = load_json(json_path)
         csv_data = self.build_csv(record)
 
@@ -108,8 +104,8 @@ class SalesUploader:
 
     def upload_all(self, data_dir="data") -> dict:
         """
-        data/YYYYMM/*.json を対象に upload_record を実行。
-        返り値: ファイルパスをキー、レスポンスまたはエラーを値とした dict
+        Execute upload_record for all JSON files under data_dir/YYYYMM.
+        Returns dict mapping file paths to responses or errors.
         """
         results = {}
         pattern = os.path.join(data_dir, "*", "sales_*.json")
