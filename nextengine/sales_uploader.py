@@ -24,8 +24,8 @@ class SalesUploader:
         pattern_id: Next Engine 側の受注一括登録パターンID
         wait_flag: メイン機能過負荷時の挙動 (1:エラーにせず実行)
         """
-        # Load environment variables
-        load_dotenv(token_env)
+        # Load only the specified env file, and override any existing vars
+        load_dotenv(token_env, override=True)
         # Use Next Engine specific variable names
         self.access_token = os.getenv("NE_ACCESS_TOKEN") or os.getenv("ne_access_token")
         self.refresh_token = os.getenv("NE_REFRESH_TOKEN") or os.getenv("ne_refresh_token")
