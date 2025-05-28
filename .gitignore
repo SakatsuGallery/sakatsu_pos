@@ -5,3 +5,7 @@ __pycache__/
 # dotenv files
 .env
 .env.test
+__pycache__/
+*.pyc
+.env
+.env.test
