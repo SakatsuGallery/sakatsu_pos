@@ -1,9 +1,11 @@
 # --- ファイル: ui/tenkey_popup.py ---
 import tkinter as tk
-from tkinter import Toplevel, StringVar, simpledialog, messagebox
+from tkinter import StringVar, Toplevel, messagebox, simpledialog
 
 
-def ask_price(parent, title="金額入力", prompt="金額を入力してください：", default=None, tax_mode=False):
+def ask_price(
+    parent, title="金額入力", prompt="金額を入力してください：", default=None, tax_mode=False
+):
     """
     モーダルで数値入力テンキーを表示し、入力された金額(整数)を返す。
     キャンセル時は None を返す。
@@ -45,6 +47,7 @@ def ask_price(parent, title="金額入力", prompt="金額を入力してくだ�
     # ボタンコールバック
     def append_digit(d):
         entry_var.set(entry_var.get() + d)
+
     def clear_entry():
         entry_var.set("")
 
@@ -65,29 +68,60 @@ def ask_price(parent, title="金額入力", prompt="金額を入力してくだ�
 
     # 数字ボタン配置
     buttons = [
-        ("7", lambda: append_digit("7")), ("8", lambda: append_digit("8")), ("9", lambda: append_digit("9")),
-        ("4", lambda: append_digit("4")), ("5", lambda: append_digit("5")), ("6", lambda: append_digit("6")),
-        ("1", lambda: append_digit("1")), ("2", lambda: append_digit("2")), ("3", lambda: append_digit("3")),
-        ("0", lambda: append_digit("0")), ("クリア", clear_entry)
+        ("7", lambda: append_digit("7")),
+        ("8", lambda: append_digit("8")),
+        ("9", lambda: append_digit("9")),
+        ("4", lambda: append_digit("4")),
+        ("5", lambda: append_digit("5")),
+        ("6", lambda: append_digit("6")),
+        ("1", lambda: append_digit("1")),
+        ("2", lambda: append_digit("2")),
+        ("3", lambda: append_digit("3")),
+        ("0", lambda: append_digit("0")),
+        ("クリア", clear_entry),
     ]
     for idx, (txt, cmd) in enumerate(buttons):
         r, c = divmod(idx, 3)
-        tk.Button(btn_frame, text=txt, command=cmd, font=("Arial", 18), width=4, height=2).grid(row=r, column=c, padx=5, pady=5)
+        tk.Button(btn_frame, text=txt, command=cmd, font=("Arial", 18), width=4, height=2).grid(
+            row=r, column=c, padx=5, pady=5
+        )
 
     # 確定・税ボタン配置
     if tax_mode:
-        tk.Button(btn_frame, text="税込", command=lambda: confirm_input(exclusive=False), font=("Arial", 18), width=4, height=2).grid(row=4, column=1, padx=5, pady=5)
-        tk.Button(btn_frame, text="税別", command=lambda: confirm_input(exclusive=True), font=("Arial", 18), width=4, height=2).grid(row=4, column=2, padx=5, pady=5)
+        tk.Button(
+            btn_frame,
+            text="税込",
+            command=lambda: confirm_input(exclusive=False),
+            font=("Arial", 18),
+            width=4,
+            height=2,
+        ).grid(row=4, column=1, padx=5, pady=5)
+        tk.Button(
+            btn_frame,
+            text="税別",
+            command=lambda: confirm_input(exclusive=True),
+            font=("Arial", 18),
+            width=4,
+            height=2,
+        ).grid(row=4, column=2, padx=5, pady=5)
     else:
-        tk.Button(btn_frame, text="入力", command=lambda: confirm_input(exclusive=False), font=("Arial", 18), width=4, height=2).grid(row=4, column=1, padx=5, pady=5)
+        tk.Button(
+            btn_frame,
+            text="入力",
+            command=lambda: confirm_input(exclusive=False),
+            font=("Arial", 18),
+            width=4,
+            height=2,
+        ).grid(row=4, column=1, padx=5, pady=5)
 
     # キーイベント
-    popup.bind('<Return>', lambda e: confirm_input(exclusive=False))
-    popup.bind('<Escape>', lambda e: popup.destroy())
+    popup.bind("<Return>", lambda e: confirm_input(exclusive=False))
+    popup.bind("<Escape>", lambda e: popup.destroy())
 
     # モーダル待機
     popup.wait_window()
     return popup.result
+
 
 # テストコード
 if __name__ == "__main__":

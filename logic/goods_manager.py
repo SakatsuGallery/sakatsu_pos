@@ -1,7 +1,9 @@
 # logic/goods_manager.py
 
-from utils.file_utils import load_json, save_json
 import os
+
+from utils.file_utils import load_json
+
 
 class GoodsManager:
     def __init__(self, data_dir=None):

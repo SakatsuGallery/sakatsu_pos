@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import Toplevel, StringVar
+from tkinter import StringVar, Toplevel
+
 
 def select_payment(parent, methods=None):
     """
@@ -26,16 +27,12 @@ def select_payment(parent, methods=None):
 
     for m in methods:
         tk.Button(
-            btn_frame,
-            text=m,
-            command=lambda m=m: choose(m),
-            font=("Arial", 16),
-            width=12,
-            height=2
+            btn_frame, text=m, command=lambda m=m: choose(m), font=("Arial", 16), width=12, height=2
         ).pack(pady=5)
 
     popup.wait_window()
     return result_var.get()
+
 
 # テストコード
 if __name__ == "__main__":

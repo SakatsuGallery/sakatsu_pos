@@ -9,3 +9,7 @@ Traceback (most recent call last):
   File "C:\sakatsu_pos\nextengine\inventory_updater.py", line 41, in build_csv
     writer = save_csv(output)
 TypeError: save_csv() missing 1 required positional argument: 'rows'
+2025-05-28 20:28:13,220 [logic.sales_recorder] INFO: Recorded sale: data\202505\sales_20250528_202813.json
+2025-05-28 20:28:13,226 [logic.sales_recorder] INFO: Inventory update successful (simulate=True): {'simulated': True, 'csv': 'goods_id,stock_quantity\r\n140006400015,-1\r\n140006400015,-1\r\n140015000015,-1\r\n'}
+2025-05-28 20:29:42,547 [logic.sales_recorder] INFO: Recorded sale: data\202505\sales_20250528_202942.json
+2025-05-28 20:29:42,551 [logic.sales_recorder] INFO: Inventory update successful (simulate=True): {'simulated': True, 'csv': 'goods_id,stock_quantity\r\n140015000015,-1\r\n'}

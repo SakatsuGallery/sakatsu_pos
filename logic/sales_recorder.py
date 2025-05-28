@@ -1,12 +1,14 @@
 # logic/sales_recorder.py
-from pathlib import Path
 import os
-from utils.file_utils import save_json, ensure_dir
-from utils.date_utils import get_current_timestamp
+from pathlib import Path
+
 from logger import get_logger
 from nextengine.inventory_updater import InventoryUpdater
+from utils.date_utils import get_current_timestamp
+from utils.file_utils import ensure_dir, save_json
 
 log = get_logger(__name__)
+
 
 class SalesRecorder:
     def __init__(self, data_dir="data"):
@@ -51,16 +53,15 @@ class SalesRecorder:
             "cart": [
                 {
                     "goods_id": item.get("goods_id"),
-                    "name":     item.get("name"),
-                    "price":    item.get("price"),
-                    "quantity": item.get("quantity", 1)
-                } for item in cart
+                    "name": item.get("name"),
+                    "price": item.get("price"),
+                    "quantity": item.get("quantity", 1),
+                }
+                for item in cart
             ],
             "total_due": total_due,
-            "payments": [
-                {"method": pay["method"], "amount": pay["amount"]} for pay in payments
-            ],
-            "change": change
+            "payments": [{"method": pay["method"], "amount": pay["amount"]} for pay in payments],
+            "change": change,
         }
 
         # JSON 保存
@@ -69,8 +70,8 @@ class SalesRecorder:
 
         # 即時在庫同期
         try:
-            sim_flag = os.getenv('IS_SIMULATION', 'true').lower() in ('1','true','yes')
-            token_env = '.env.test' if sim_flag else '.env.token'
+            sim_flag = os.getenv("IS_SIMULATION", "true").lower() in ("1", "true", "yes")
+            token_env = ".env.test" if sim_flag else ".env.token"
             updater = InventoryUpdater(token_env=token_env, simulate=sim_flag)
             res = updater.update_from_record(str(file_path))
             log.info(f"Inventory update successful (simulate={sim_flag}): {res}")

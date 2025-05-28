@@ -4,12 +4,7 @@ import os
 base = r"C:\sakatsu_pos"
 
 # Subdirectories to create
-dirs = [
-    "ui",
-    "logic",
-    "nextengine",
-    "data"
-]
+dirs = ["ui", "logic", "nextengine", "data"]
 
 # Create directories
 for d in dirs:
@@ -37,7 +32,7 @@ files = [
     os.path.join("data", "goods_data.json"),
     os.path.join("data", "settings.json"),
     os.path.join("data", "sales_log.csv"),
-    os.path.join("data", "cash_log.csv")
+    os.path.join("data", "cash_log.csv"),
 ]
 
 # Create files

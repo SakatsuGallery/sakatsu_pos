@@ -1,11 +1,12 @@
 # logic/cash_flow_recorder.py
 from pathlib import Path
-import os
-from utils.file_utils import save_json, ensure_dir
-from utils.date_utils import get_current_timestamp
+
 from logger import get_logger
+from utils.date_utils import get_current_timestamp
+from utils.file_utils import ensure_dir, save_json
 
 log = get_logger(__name__)
+
 
 class CashFlowRecorder:
     def __init__(self, data_dir="data"):
@@ -20,8 +21,8 @@ class CashFlowRecorder:
         レコードを JSON ファイルとして保存し、ファイルパスを返します。
         """
         # タイムスタンプ（YYYYMMDD_HHMMSS）と年月ディレクトリ（YYYYMM）を取得
-        ts = get_current_timestamp(fmt='%Y%m%d_%H%M%S')
-        ym = get_current_timestamp(fmt='%Y%m')
+        ts = get_current_timestamp(fmt="%Y%m%d_%H%M%S")
+        ym = get_current_timestamp(fmt="%Y%m")
         dir_path = self.data_dir / "cashflow" / ym
 
         # ディレクトリ作成
@@ -38,8 +39,8 @@ class CashFlowRecorder:
         """現金入金を記録し、ファイルパスを返します。"""
         rec = {
             "type": "deposit",
-            "timestamp": get_current_timestamp(fmt='%Y-%m-%dT%H:%M:%S'),
-            "amount": amount
+            "timestamp": get_current_timestamp(fmt="%Y-%m-%dT%H:%M:%S"),
+            "amount": amount,
         }
         return self._write(rec, "deposit")
 
@@ -47,7 +48,7 @@ class CashFlowRecorder:
         """現金出金を記録し、ファイルパスを返します。"""
         rec = {
             "type": "withdraw",
-            "timestamp": get_current_timestamp(fmt='%Y-%m-%dT%H:%M:%S'),
-            "amount": amount
+            "timestamp": get_current_timestamp(fmt="%Y-%m-%dT%H:%M:%S"),
+            "amount": amount,
         }
         return self._write(rec, "withdraw")

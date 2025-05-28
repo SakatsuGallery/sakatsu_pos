@@ -1,12 +1,14 @@
 # logic/payment_manager.py
 
-from typing import Optional, Dict
+from typing import Dict, Optional
+
 
 class PaymentManager:
     """
     複数支払い対応の管理クラス。
     支払い方法と金額を追加し、合計支払額とお釣りを計算する。
     """
+
     def __init__(self):
         self.payments = []
 
@@ -34,10 +36,12 @@ class PaymentManager:
             summary[method] += amount
         return summary
 
+
 # ── ここからモジュールレベルの関数群 ──
 
 # 支払い累計を管理する内部辞書
 _payments: Dict[str, float] = {"現金": 0.0, "クレカ": 0.0, "QR": 0.0}
+
 
 def get_initial_amount(method: str, remaining_due: float) -> Optional[float]:
     """
@@ -48,6 +52,7 @@ def get_initial_amount(method: str, remaining_due: float) -> Optional[float]:
     if method == "現金":
         return None
     return remaining_due
+
 
 def process_payment(method: str, remaining_due: float, amt: float) -> Dict:
     """
@@ -70,18 +75,13 @@ def process_payment(method: str, remaining_due: float, amt: float) -> Dict:
             "status": "pending",
             "remaining_due": new_remain,
             "change": 0.0,
-            "message": f"残り¥{int(new_remain)}の支払いをお待ちしております"
+            "message": f"残り¥{int(new_remain)}の支払いをお待ちしております",
         }
 
     # 完全支払い or おつりあり（現金のみ）
     if new_remain == 0 or method == "現金":
         change = max(0.0, -new_remain)
-        return {
-            "status": "complete",
-            "remaining_due": 0.0,
-            "change": change,
-            "message": ""
-        }
+        return {"status": "complete", "remaining_due": 0.0, "change": change, "message": ""}
 
     # カード／QR の超過入力
     over = -new_remain
@@ -89,8 +89,9 @@ def process_payment(method: str, remaining_due: float, amt: float) -> Dict:
         "status": "warning",
         "remaining_due": remaining_due,
         "change": 0.0,
-        "message": f"注意！未決済額を¥{int(over)}上回っています"
+        "message": f"注意！未決済額を¥{int(over)}上回っています",
     }
+
 
 def get_payments_summary() -> Dict[str, float]:
     """
@@ -98,6 +99,7 @@ def get_payments_summary() -> Dict[str, float]:
     日次／月次レポートで利用してください。
     """
     return dict(_payments)
+
 
 def reset_payments():
     """

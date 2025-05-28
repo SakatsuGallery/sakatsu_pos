@@ -1,93 +1,89 @@
-# --- ファイル: nextengine/inventory_updater.py ---
-"""
-Inventory update module for Next Engine.
-After a sale, decrement stock quantities via the master goods upload API.
-Supports simulation mode for development and real POST for production.
-"""
-import os
 import glob
-from utils.file_utils import load_json, save_json
 import io
-from utils.file_utils import load_csv, save_csv
+import os
+import csv
 import requests
+from pathlib import Path
 from dotenv import load_dotenv
+from utils.file_utils import load_json, save_csv, ensure_dir
 
 class InventoryUpdater:
-    """
-    - token_env: Path to the .env file (.env.test or .env.token)
-    - simulate: If True, run in simulation mode (skip actual POST)
-    """
-    # エンドポイントパス
-    API_PATH = '/api_v1_master_goods/upload'
+    """Inventory update module for Next Engine."""
+    API_PATH = "/api_v1_master_goods/upload"
 
-    def __init__(self, token_env='.env.token', simulate=True):
+    def __init__(self, token_env=".env", simulate=True):
+        """Initialize the updater.
+        token_env: Path to environment file (e.g. .env, .env.test)
+        simulate: If True, use test endpoint and skip actual POST.
+        """
         self.simulate = simulate
-        domain = 'api.test.next-engine.org' if simulate else 'api.next-engine.org'
+        load_dotenv(token_env)
+        self.access_token = os.getenv("NE_ACCESS_TOKEN")
+        self.refresh_token = os.getenv("NE_REFRESH_TOKEN")
+        if not self.access_token or not self.refresh_token:
+            raise RuntimeError(f"Missing NE_ACCESS_TOKEN or NE_REFRESH_TOKEN in {token_env}")
+        domain = "api.test.next-engine.org" if simulate else "api.next-engine.org"
         self.api_url = f"https://{domain}{self.API_PATH}"
 
-        load_dotenv(token_env)
-
-        if not simulate:
-            self.access_token = os.getenv('ACCESS_TOKEN') or os.getenv('access_token')
-            self.refresh_token = os.getenv('REFRESH_TOKEN') or os.getenv('refresh_token')
-            if not self.access_token:
-                raise RuntimeError(f"ACCESS_TOKEN not found in {token_env}")
-        else:
-            self.access_token = os.getenv('ACCESS_TOKEN')
-            self.refresh_token = os.getenv('REFRESH_TOKEN')
-
-    def build_csv(self, record: dict) -> (str, int):
+    def build_csv(self, record):
+        """Build CSV data string from a record dict."""
         output = io.StringIO()
-        writer = save_csv(output)
-        writer.writerow(['goods_id', 'stock_quantity'])
+        writer = csv.writer(output)
+        writer.writerow(["goods_id", "stock_quantity"])
         valid_lines = 0
-        for item in record.get('cart', []):
-            gid = item.get('goods_id')
-            qty = item.get('quantity', 1)
-            if not gid:
-                continue
-            writer.writerow([gid, -qty])
-            valid_lines += 1
+        for item in record.get("cart", []):
+            gid = item.get("goods_id")
+            qty = item.get("quantity", 1)
+            if gid:
+                writer.writerow([gid, -qty])
+                valid_lines += 1
         return output.getvalue(), valid_lines
 
-    def update_from_record(self, json_path: str) -> dict:
-        with open(json_path, 'r', encoding='utf-8') as f:
-            record = load_json(f)
-
+    def update_from_record(self, json_path):
+        """Update inventory from a single JSON record file and write audit CSV."""
+        record = load_json(json_path)
         csv_data, valid = self.build_csv(record)
         if valid == 0:
-            print(f"[InventoryUpdater] No valid goods_id found in {json_path}, skipping.")
-            return {'skipped': True}
+            print(f"[InventoryUpdater] No valid goods_id in {json_path}, skipping.")
+            return {"skipped": True}
+
+        # Write audit CSV report
+        date_str = Path(json_path).stem.replace("sales_", "")
+        report_dir = "reports"
+        ensure_dir(report_dir)
+        report_path = os.path.join(report_dir, f"inventory_{date_str}.csv")
+        # Convert CSV text to rows
+        rows = [line.split(",") for line in csv_data.strip().splitlines()]
+        save_csv(report_path, rows)
+        print(f"[InventoryUpdater] Report saved to {report_path}")
 
         if self.simulate:
-            print(f"[InventoryUpdater] Simulation mode: would POST to {self.api_url}")
-            print(csv_data)
-            return {'simulated': True, 'csv': csv_data}
+            print(f"[InventoryUpdater] Simulation mode: POST to {self.api_url}")
+            return {"simulated": True, "csv": csv_data}
 
         payload = {
-            'access_token': self.access_token,
-            'refresh_token': self.refresh_token,
-            'data_type_1': 'csv',
-            'data_1': csv_data
+            "access_token": self.access_token,
+            "refresh_token": self.refresh_token,
+            "data_type_1": "csv",
+            "data_1": csv_data,
         }
-        resp = requests.post(self.api_url, data=payload)
-        resp.raise_for_status()
-        return resp.json()
+        response = requests.post(self.api_url, data=payload)
+        response.raise_for_status()
+        return response.json()
 
-    def update_all(self, data_dir='data') -> dict:
+    def update_all(self, data_dir="data"):
+        """Process all JSON records under data_dir."""
         results = {}
-        pattern = os.path.join(data_dir, '*', 'sales_*.json')
+        pattern = os.path.join(data_dir, "*", "sales_*.json")
         for path in glob.glob(pattern):
             try:
-                res = self.update_from_record(path)
-                results[path] = res
-                print(f"Processed {path} => {res}")
+                results[path] = self.update_from_record(path)
             except Exception as e:
-                results[path] = {'error': str(e)}
-                print(f"Error processing {path} => {e}")
+                results[path] = {"error": str(e)}
+                print(f"[InventoryUpdater] Error processing {path}: {e}")
         return results
 
-if __name__ == '__main__':
-    iu = InventoryUpdater(token_env='.env.test', simulate=True)
-    result = iu.update_all(data_dir='data')
+if __name__ == "__main__":
+    updater = InventoryUpdater(token_env=".env.test", simulate=True)
+    result = updater.update_all(data_dir="data")
     print(result)

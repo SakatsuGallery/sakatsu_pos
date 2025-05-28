@@ -1,13 +1,15 @@
 # logger.py
 
-import os
 import logging
+import os
 from logging.handlers import RotatingFileHandler
+
 from config import Config
 
 # ログ出力ディレクトリ
-LOG_DIR = os.path.join(os.path.dirname(__file__), 'logs')
+LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
+
 
 def get_logger(name: str) -> logging.Logger:
     """
@@ -21,7 +23,7 @@ def get_logger(name: str) -> logging.Logger:
         logger.setLevel(level)
 
         # フォーマット
-        fmt = '%(asctime)s [%(name)s] %(levelname)s: %(message)s'
+        fmt = "%(asctime)s [%(name)s] %(levelname)s: %(message)s"
         formatter = logging.Formatter(fmt)
 
         # コンソール出力
@@ -32,10 +34,10 @@ def get_logger(name: str) -> logging.Logger:
 
         # ファイル出力（ローテーション）
         fh = RotatingFileHandler(
-            filename=os.path.join(LOG_DIR, f'{name}.log'),
-            maxBytes=10 * 1024 * 1024,    # 10MiB ごとにローテート
-            backupCount=5,               # 古いログを 5 世代まで保持
-            encoding='utf-8'
+            filename=os.path.join(LOG_DIR, f"{name}.log"),
+            maxBytes=10 * 1024 * 1024,  # 10MiB ごとにローテート
+            backupCount=5,  # 古いログを 5 世代まで保持
+            encoding="utf-8",
         )
         fh.setLevel(level)
         fh.setFormatter(formatter)
