@@ -6,6 +6,7 @@ import threading
 import tkinter as tk
 import winsound
 from tkinter import messagebox
+from tkinter import Toplevel, Text, Button
 
 from ui.daily_tasks import run_daily_tasks
 from logic.cash_flow_recorder import CashFlowRecorder
@@ -46,6 +47,13 @@ class POSApp:
         self.remaining_due = 0.0
 
         self.setup_ui()
+
+        # ステータスバーの追加
+        self.status_var = tk.StringVar(value="")
+        self.status_bar = tk.Label(self.root, textvariable=self.status_var,
+                                   bd=1, relief="sunken", anchor="w")
+        self.status_bar.pack(side="bottom", fill="x")
+        self.status_bar.bind("<Button-1>", self._on_status_click)
 
     def setup_ui(self):
         frame = tk.Frame(self.root)
@@ -413,6 +421,27 @@ class POSApp:
                 self.show_toast("月次処理完了")
             except Exception as e:
                 messagebox.showerror("月次処理エラー", str(e))
+
+    # ステータスバークリック時にエラー履歴ダイアログを表示
+    def _on_status_click(self, event):
+        dlg = Toplevel(self.root)
+        dlg.title("エラー履歴")
+        text = Text(dlg, wrap="none")
+        text.pack(fill="both", expand=True)
+        # エラーログファイルを読み込み
+        log_path = "logs/inventory_errors.log"
+        if os.path.exists(log_path):
+            with open(log_path, "r", encoding="utf-8") as f:
+                text.insert("1.0", f.read())
+        else:
+            text.insert("1.0", "エラー履歴が存在しません。")
+        Button(dlg, text="閉じる", command=dlg.destroy).pack(pady=5)
+
+    # エラー発生時にステータスバーへ表示
+    def show_error(self, message: str):
+        from datetime import datetime
+        ts = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        self.status_var.set(f"[Error] {ts} {message}")
 
         threading.Thread(target=task, daemon=True).start()
 

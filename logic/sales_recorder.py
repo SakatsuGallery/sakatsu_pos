@@ -71,7 +71,7 @@ class SalesRecorder:
         # 即時在庫同期
         try:
             sim_flag = os.getenv("IS_SIMULATION", "true").lower() in ("1", "true", "yes")
-            token_env = ".env.test" if sim_flag else ".env.token"
+            token_env = ".env.test" if sim_flag else ".env" if sim_flag else ".env.token"
             updater = InventoryUpdater(token_env=token_env, simulate=sim_flag)
             res = updater.update_from_record(str(file_path))
             log.info(f"Inventory update successful (simulate={sim_flag}): {res}")

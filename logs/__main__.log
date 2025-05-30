@@ -1,0 +1,9 @@
+2025-05-28 21:51:35,879 [__main__] INFO: Uploaded data\202505\sales_20250523_005414.json => {'result': 'error', 'code': '002002', 'message': 'access_token[# 本番用アクセストークン（後で設定）]が不正です。'}
+2025-05-28 21:51:35,980 [__main__] INFO: Uploaded data\202505\sales_20250528_202813.json => {'result': 'error', 'code': '002002', 'message': 'access_token[# 本番用アクセストークン（後で設定）]が不正です。'}
+2025-05-28 21:51:36,065 [__main__] INFO: Uploaded data\202505\sales_20250528_202942.json => {'result': 'error', 'code': '002002', 'message': 'access_token[# 本番用アクセストークン（後で設定）]が不正です。'}
+2025-05-28 22:11:28,543 [__main__] INFO: Uploaded data\202505\sales_20250523_005414.json => {'result': 'error', 'code': '002002', 'message': 'access_token[# 本番用アクセストークン（後で設定）]が不正です。'}
+2025-05-28 22:11:28,630 [__main__] INFO: Uploaded data\202505\sales_20250528_202813.json => {'result': 'error', 'code': '002002', 'message': 'access_token[# 本番用アクセストークン（後で設定）]が不正です。'}
+2025-05-28 22:11:28,720 [__main__] INFO: Uploaded data\202505\sales_20250528_202942.json => {'result': 'error', 'code': '002002', 'message': 'access_token[# 本番用アクセストークン（後で設定）]が不正です。'}
+2025-05-28 22:19:12,205 [__main__] INFO: Uploaded data\202505\sales_20250523_005414.json => {'result': 'redirect', 'code': '002004', 'message': 'access_tokenの有効期限が終了しました。'}
+2025-05-28 22:19:12,292 [__main__] INFO: Uploaded data\202505\sales_20250528_202813.json => {'result': 'redirect', 'code': '002004', 'message': 'access_tokenの有効期限が終了しました。'}
+2025-05-28 22:19:12,375 [__main__] INFO: Uploaded data\202505\sales_20250528_202942.json => {'result': 'redirect', 'code': '002004', 'message': 'access_tokenの有効期限が終了しました。'}

@@ -19,7 +19,7 @@ log = get_logger(__name__)
 class SalesUploader:
     API_URL = "https://api.next-engine.org/api_v1_receiveorder_base/upload"
 
-    def __init__(self, token_env=".env.test", pattern_id=1, wait_flag=1):
+    def __init__(self, token_env=".env", pattern_id=1, wait_flag=1):
         """
         pattern_id: Next Engine 側の受注一括登録パターンID
         wait_flag: メイン機能過負荷時の挙動 (1:エラーにせず実行)
@@ -124,6 +124,6 @@ class SalesUploader:
 
 
 if __name__ == "__main__":
-    su = SalesUploader(token_env=".env.test", pattern_id=1)
+    su = SalesUploader(token_env=".env", pattern_id=1)
     results = su.upload_all(data_dir="data")
     print(results)

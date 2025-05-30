@@ -12,7 +12,7 @@ from utils.date_utils import get_current_timestamp
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     sim_flag = os.getenv("IS_SIMULATION", "true").lower() in ("1", "true", "yes")
-    token_env = ".env.test" if sim_flag else ".env.token"
+    token_env = ".env.test" if sim_flag else ".env" if sim_flag else ".env.token"
 
     logging.info("=== 日次同期＆バックアップ開始 ===")
 

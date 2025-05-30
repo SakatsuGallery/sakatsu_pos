@@ -13,3 +13,5 @@ TypeError: save_csv() missing 1 required positional argument: 'rows'
 2025-05-28 20:28:13,226 [logic.sales_recorder] INFO: Inventory update successful (simulate=True): {'simulated': True, 'csv': 'goods_id,stock_quantity\r\n140006400015,-1\r\n140006400015,-1\r\n140015000015,-1\r\n'}
 2025-05-28 20:29:42,547 [logic.sales_recorder] INFO: Recorded sale: data\202505\sales_20250528_202942.json
 2025-05-28 20:29:42,551 [logic.sales_recorder] INFO: Inventory update successful (simulate=True): {'simulated': True, 'csv': 'goods_id,stock_quantity\r\n140015000015,-1\r\n'}
+2025-05-29 03:18:11,099 [logic.sales_recorder] INFO: Recorded sale: data\202505\sales_20250529_031811.json
+2025-05-29 03:18:11,108 [logic.sales_recorder] INFO: Inventory update successful (simulate=True): {'simulated': True, 'csv': 'syohin_code,zaiko_su\r\n140015000015,-1\r\n'}
