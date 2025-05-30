@@ -41,8 +41,11 @@ class InventoryUpdater:
     def refresh_access_token(self):
         """Refresh expired access token using refresh token."""
         # 正しいエンドポイントに１本化（access_token／refresh_token 取得・更新ともこのパス）
+        # 会計シミュレーションと本番でドメインを使い分け
+        api_domain = "api.test.next-engine.org" if self.simulate else "api.next-engine.org"
+        url = f"https://{api_domain}/api_neauth"
         resp = requests.post(
-            f"https://{domain}/api_neauth",
+            url,
             data={
                 "client_id": os.getenv("NE_CLIENT_ID"),
                 "client_secret": os.getenv("NE_CLIENT_SECRET"),
