@@ -40,8 +40,9 @@ class InventoryUpdater:
 
     def refresh_access_token(self):
         """Refresh expired access token using refresh token."""
+        # 正しい auth エンドポイントに変更
         resp = requests.post(
-            "https://api.next-engine.org/api_v1_auth/refresh_token",
+            "https://api.next-engine.org/api_v1_neauth/refresh_token",
             data={"refresh_token": self.ne_refresh_token}
         )
         resp.raise_for_status()
