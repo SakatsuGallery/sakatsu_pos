@@ -123,9 +123,7 @@ class InventoryUpdater:
 
         if self.simulate:
             print(f"[InventoryUpdater] Simulation mode: POST to {self.api_url}")
-            dest = os.path.join('data', 'success')
-            ensure_dir(dest)
-            shutil.move(json_path, os.path.join(dest, os.path.basename(json_path)))
+            # シミュレーション時はファイル移動をスキップ
             return {'simulated': True, 'csv': csv_data}
 
         payload = {
