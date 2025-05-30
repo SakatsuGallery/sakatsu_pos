@@ -135,7 +135,9 @@ class InventoryUpdater:
             try:
                 results[path] = self.update_from_record(path)
             except Exception as e:
-                results[path] = {'error': str(e)}
+                import traceback
+                traceback.print_exc()        # ← ここで詳細なスタックトレースを出す
+                results[path] = {"error": str(e)}
                 print(f"[InventoryUpdater] Error processing {path}: {e}")
         return results
 
