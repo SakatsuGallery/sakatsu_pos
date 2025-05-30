@@ -47,9 +47,10 @@ class InventoryUpdater:
         resp = requests.post(
             url,
             data={
-                "client_id": os.getenv("NE_CLIENT_ID"),
-                "client_secret": os.getenv("NE_CLIENT_SECRET"),
-                "refresh_token": self.ne_refresh_token
+                # Next Engine API の仕様で「uid」パラメータとしてクライアント ID を渡す
+                "uid":             os.getenv("NE_CLIENT_ID"),
+                "client_secret":   os.getenv("NE_CLIENT_SECRET"),
+                "refresh_token":   self.ne_refresh_token,
             }
         )
         resp.raise_for_status()
