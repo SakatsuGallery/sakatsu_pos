@@ -1,0 +1,37 @@
+cd /c/sakatsu_pos
+source .venv/Scripts/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+export $(grep -v '^#' .env | xargs)
+
+
+
+
+
+
+# 1. プロジェクトディレクトリに移動
+cd /c/sakatsu_pos
+
+# 2. （初回のみ）.env.example をコピーして .env を作成する
+#    → すでに .env が存在する場合はスキップ
+cp .env.example .env
+
+# 3. 仮想環境を有効化
+#    → Windows の Git Bash では以下のように source します
+source .venv/Scripts/activate
+
+# 4. pip を最新版にしておく（.venv 内の pip を更新）
+python -m pip install --upgrade pip
+
+# 5. 必要なパッケージをインストール
+pip install -r requirements.txt
+
+# 6. 環境変数が正しく読み込まれるか確認する（例：NEXT_ENGINE_CLIENT_ID が見えるか）
+#    → もし .env に記載しているなら python-dotenv が自動で読み込みますが、
+#       簡易的に「.env の中身をシェル環境にも載せたい」場合は以下のようにします：
+export $(grep -v '^#' .env | xargs)
+
+# これで「python -m nextengine.inventory_updater」 などが実行できるようになります。
+
+# （おまけ：もし parse_callback_auto.py を使って最初のトークンを取得する場合）
+python parse_callback_auto.py

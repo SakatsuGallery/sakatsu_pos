@@ -1,3 +1,4 @@
+
 import glob
 import io
 import os
@@ -5,184 +6,193 @@ import csv
 import requests
 import shutil
 import time
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 from utils.file_utils import load_json, save_csv, ensure_dir
 
 class InventoryUpdater:
-    """Inventory update module for Next Engine."""
-    API_PATH = "/api_v1_master_goods/upload"
+    """Inventory update モジュール for Next Engine.
+    ───────────────────────────────────────────────────────────
+    ・在庫同期を JSON→CSV 変換して Next Engine に送信
+    ・access_token/refresh_token が期限切れなら自動的に再認可フローを起動
+    ・テストモード（simulate=True）では実際の POST は行わない
+    """
 
-    def __init__(self, token_env=".env", simulate=True):
-        """Initialize the updater.
-        token_env: Path to environment file (e.g. .env, .env.test)
-        simulate: If True, skip actual POST and use test endpoint.
-        """
-        self.simulate = simulate
-        self.token_env = token_env
-        # Backup existing env file
+    API_PATH   = "/api_v1_master_goods/upload"
+    TOKEN_PATH = "/api_neauth"       # トークン交換用
+    SIGNIN_URL = "https://base.next-engine.org/users/sign_in/"
+
+    def __init__(self, token_env: str = ".env", simulate: bool = True):
+        self.simulate   = simulate
+        self.token_env  = token_env
+
+        # .env のバックアップ（任意）
         try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            shutil.copyfile(token_env, f"{token_env}.bak_{timestamp}")
+            timestamp   = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = f"{token_env}.bak_{timestamp}"
+            shutil.copyfile(token_env, backup_path)
         except Exception:
-            # If backup fails, proceed
             pass
 
-        # Load environment variables, overriding existing
+        # 環境変数読み込み
         load_dotenv(token_env, override=True)
-        # Store tokens in attributes that won't clash with method names
-        self.ne_access_token = os.getenv("NE_ACCESS_TOKEN")
-        self.ne_refresh_token = os.getenv("NE_REFRESH_TOKEN")
-        if not self.ne_access_token or not self.ne_refresh_token:
-            raise RuntimeError(f"Missing NE_ACCESS_TOKEN or NE_REFRESH_TOKEN in {token_env}")
-        self.api_url = f"https://api.next-engine.org{self.API_PATH}"
+        self.access_token  = os.getenv("NE_ACCESS_TOKEN")
+        self.refresh_token = os.getenv("NE_REFRESH_TOKEN")
+        self.client_id     = os.getenv("NE_CLIENT_ID")
+        self.client_secret = os.getenv("NE_CLIENT_SECRET")
+        self.redirect_uri  = os.getenv("NE_REDIRECT_URI")
+
+        if not all([self.access_token, self.refresh_token, self.client_id, self.client_secret, self.redirect_uri]):
+            raise RuntimeError(f"Missing credentials in {token_env}")
+
+        # エンドポイント設定
+        domain = "api.next-engine.org"
+        self.api_url   = f"https://{domain}{self.API_PATH}"
+        self.token_url = f"https://{domain}{self.TOKEN_PATH}"
 
     def refresh_access_token(self):
-        """Refresh expired access token using refresh token."""
-        # 正しいエンドポイントに１本化（access_token／refresh_token 取得・更新ともこのパス）
-        # 会計シミュレーションと本番でドメインを使い分け
-        api_domain = "api.test.next-engine.org" if self.simulate else "api.next-engine.org"
-        url = f"https://{api_domain}/api_neauth"
-        resp = requests.post(
-            url,
-            data={
-                # Next Engine API の仕様で「uid」パラメータとしてクライアント ID を渡す
-                "uid":             os.getenv("NE_CLIENT_ID"),
-                "client_secret":   os.getenv("NE_CLIENT_SECRET"),
-                "refresh_token":   self.ne_refresh_token,
-            }
-        )
-        resp.raise_for_status()
-        resp_json = resp.json()
-        # Handle nested response
-        data = resp_json.get('response', resp_json)
-        access = data.get('access_token')
-        refresh = data.get('refresh_token')
-        if not access or not refresh:
-            raise RuntimeError(f"Failed to refresh token, response: {resp_json}")
+        """Refresh access token using refresh_token grant."""
+        payload = {
+            "grant_type":    "refresh_token",
+            "refresh_token": self.refresh_token,
+            "client_id":     self.client_id,
+            "client_secret": self.client_secret
+        }
+        try:
+            res = requests.post(self.token_url, data=payload)
+            res.raise_for_status()
+        except Exception as e:
+            print(f"[InventoryUpdater] Token refresh HTTP error: {e}")
+            self._invoke_interactive_auth()
+            raise RuntimeError("Interactive auth required")
 
-        # Update .env file
+        data = res.json()
+        if "access_token" not in data or "refresh_token" not in data:
+            print(f"[InventoryUpdater] Unexpected token response: {data}")
+            self._invoke_interactive_auth()
+            raise RuntimeError("Invalid token response")
+
+        self.access_token  = data["access_token"]
+        self.refresh_token = data["refresh_token"]
+        self._write_tokens_to_env(self.access_token, self.refresh_token)
+        print("[InventoryUpdater] Tokens refreshed.")
+
+    def _invoke_interactive_auth(self):
+        """Launch interactive auth flow (e.g., callback.php)."""
+        try:
+            # Open browser to initiate OAuth
+            import webbrowser
+            webbrowser.open(self.SIGNIN_URL + f"?client_id={self.client_id}")
+        except Exception as e:
+            print(f"[InventoryUpdater] Failed to start interactive auth: {e}")
+
+    def _write_tokens_to_env(self, access, refresh):
+        """Overwrite .env with new tokens."""
         lines = []
         try:
-            with open(self.token_env, 'r', encoding='utf-8') as f:
+            with open(self.token_env, "r", encoding="utf-8") as f:
                 lines = f.readlines()
         except FileNotFoundError:
-            # No existing file, will create new
-            lines = []
-        with open(self.token_env, 'w', encoding='utf-8') as f:
+            pass
+
+        with open(self.token_env, "w", encoding="utf-8") as f:
             for line in lines:
-                if line.startswith('NE_ACCESS_TOKEN='):
+                if line.startswith("NE_ACCESS_TOKEN="):
                     f.write(f"NE_ACCESS_TOKEN={access}\n")
-                elif line.startswith('NE_REFRESH_TOKEN='):
+                elif line.startswith("NE_REFRESH_TOKEN="):
                     f.write(f"NE_REFRESH_TOKEN={refresh}\n")
                 else:
                     f.write(line)
-            # If tokens not in original, append
-            if not any(l.startswith('NE_ACCESS_TOKEN=') for l in lines):
-                f.write(f"NE_ACCESS_TOKEN={access}\n")
-            if not any(l.startswith('NE_REFRESH_TOKEN=') for l in lines):
-                f.write(f"NE_REFRESH_TOKEN={refresh}\n")
-
-        # Update in-memory tokens
-        self.ne_access_token = access
-        self.ne_refresh_token = refresh
 
     def build_csv(self, record):
-        """Build CSV data string from a record dict."""
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(['syohin_code', 'zaiko_su'])
-        valid_lines = 0
-        for item in record.get('cart', []):
-            code = item.get('goods_id')
-            qty = item.get('quantity', 1)
+        writer.writerow(["syohin_code", "zaiko_su"])
+        valid = 0
+        for item in record.get("cart", []):
+            code = item.get("goods_id")
+            qty  = item.get("quantity", 1)
             if code:
                 writer.writerow([code, -qty])
-                valid_lines += 1
-        return output.getvalue(), valid_lines
+                valid += 1
+        return output.getvalue(), valid
 
-    def update_from_record(self, json_path):
-        """Process single JSON file: generate CSV, post to API, and move file."""
-        if not os.path.isfile(json_path):
-            print(f"[InventoryUpdater] Not a file, skipping: {json_path}")
-            return {'skipped': True}
-
-        record = load_json(json_path)
-        if not isinstance(record, dict):
-            print(f"[InventoryUpdater] Invalid JSON record, skipping: {json_path}")
-            return {'skipped': True}
+    def update_from_record(self, json_path: str):
+        # Load JSON
+        try:
+            record = load_json(json_path)
+        except Exception as e:
+            print(f"[InventoryUpdater] Fail load JSON {json_path}: {e}")
+            pending = os.path.join("data", "pending")
+            ensure_dir(pending)
+            shutil.move(json_path, os.path.join(pending, os.path.basename(json_path)))
+            return {"error": str(e)}
 
         csv_data, valid = self.build_csv(record)
         if valid == 0:
-            print(f"[InventoryUpdater] No valid syohin_code in {json_path}, skipping.")
-            dest = os.path.join('data', 'success')
-            ensure_dir(dest)
-            shutil.move(json_path, os.path.join(dest, os.path.basename(json_path)))
-            return {'skipped': True}
+            print(f"[InventoryUpdater] No valid data in {json_path}")
+            success = os.path.join("data", "success")
+            ensure_dir(success)
+            shutil.move(json_path, os.path.join(success, os.path.basename(json_path)))
+            return {"skipped": True}
 
         # Save report
-        date_str = Path(json_path).stem.replace('sales_', '')
-        report_dir = 'reports'
+        report_dir = "reports"
         ensure_dir(report_dir)
+        date_str = Path(json_path).stem.replace("sales_", "")
         report_path = os.path.join(report_dir, f"inventory_{date_str}.csv")
-        rows = [line.split(',') for line in csv_data.strip().splitlines()]
+        rows = [line.split(",") for line in csv_data.strip().splitlines()]
         save_csv(report_path, rows)
-        print(f"[InventoryUpdater] Report saved to {report_path}")
+        print(f"[InventoryUpdater] Report saved: {report_path}")
 
         if self.simulate:
-            print(f"[InventoryUpdater] Simulation mode: POST to {self.api_url}")
-            # シミュレーション時はファイル移動をスキップ
-            return {'simulated': True, 'csv': csv_data}
+            print(f"[InventoryUpdater] Simulation: POST to {self.api_url}")
+            dest = os.path.join("data", "success")
+            ensure_dir(dest)
+            shutil.move(json_path, os.path.join(dest, os.path.basename(json_path)))
+            return {"simulated": True}
 
+        # Attempt API call with retry and token refresh
         payload = {
-            'access_token': self.ne_access_token,
-            'refresh_token': self.ne_refresh_token,
-            'data_type_1': 'csv',
-            'data_1': csv_data,
+            "access_token":  self.access_token,
+            "refresh_token": self.refresh_token,
+            "data_type":     "csv",
+            "data":          csv_data
         }
-
         result = None
-        for attempt in range(2):
+        for i in range(2):
             try:
-                r = requests.post(self.api_url, data=payload)
-                if r.status_code >= 500:
-                    time.sleep(2 ** attempt)
-                    continue
-                result = r.json()
-                if result.get('code') == '002004':
-                    # Token expired, refresh and retry
+                resp = requests.post(self.api_url, data=payload)
+                if resp.status_code == 401:
+                    print("[InventoryUpdater] 401 Unauthorized, refreshing token")
                     self.refresh_access_token()
                     continue
+                resp.raise_for_status()
+                result = resp.json()
                 break
-            except requests.RequestException:
-                time.sleep(2 ** attempt)
-                continue
+            except Exception as e:
+                print(f"[InventoryUpdater] Attempt {i+1} failed: {e}")
+                time.sleep(2 ** i)
 
         # Move file based on result
-        success = result and result.get('result') == 'success'
-        dest = os.path.join('data', 'success' if success else 'pending')
-        ensure_dir(dest)
-        shutil.move(json_path, os.path.join(dest, os.path.basename(json_path)))
-        return result or {'error': 'Max retries exceeded'}
+        dest_dir = "data/success" if result and result.get("result")=="success" else "data/pending"
+        ensure_dir(dest_dir)
+        shutil.move(json_path, os.path.join(dest_dir, os.path.basename(json_path)))
+        return result or {"error": "Max retries exceeded"}
 
-    def update_all(self, data_dir='data'):
-        """Process all JSON records under data_dir."""
+    def update_all(self, data_dir="data"):
         results = {}
-        pattern = os.path.join(data_dir, '*', 'sales_*.json')
+        pattern = os.path.join(data_dir, "*", "sales_*.json")
         for path in glob.glob(pattern):
-            parent = os.path.basename(os.path.dirname(path))
-            if not (parent.isdigit() and len(parent) == 6):
-                continue
             try:
                 results[path] = self.update_from_record(path)
             except Exception as e:
-                import traceback
-                traceback.print_exc()
-                results[path] = {'error': str(e)}
-                print(f"[InventoryUpdater] Error processing {path}: {e}")
+                results[path] = {"error": str(e)}
         return results
 
-if __name__ == '__main__':
-    updater = InventoryUpdater(token_env='.env', simulate=False)
-    print(updater.update_all(data_dir='data'))
+if __name__ == "__main__":
+    updater = InventoryUpdater(token_env=".env.test", simulate=True)
+    print(updater.update_all())

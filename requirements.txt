@@ -3,3 +3,5 @@ requests>=2.32.0
 python-dotenv>=1.0.1
 pyserial>=3.5
 pytest>=8.2.0
+python-escpos       # ESC/POS プリンタ制御
+PyYAML             # YAML レイアウト読み込み用

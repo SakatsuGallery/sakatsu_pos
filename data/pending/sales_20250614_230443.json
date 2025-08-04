@@ -1,0 +1,26 @@
+{
+  "transaction_id": "20250614_230443",
+  "timestamp": "2025-06-14T23:04:43",
+  "cart": [
+    {
+      "goods_id": "",
+      "name": "rrr",
+      "price": 990,
+      "quantity": 1
+    },
+    {
+      "goods_id": "140015000015",
+      "name": "150-00015　国鉄蒸気機関車乗務員　点検する機関士　：タイニーテイルズ　着色済み完成品　1/150",
+      "price": 550,
+      "quantity": 1
+    }
+  ],
+  "total_due": 1540,
+  "payments": [
+    {
+      "method": "QR",
+      "amount": 1540.0
+    }
+  ],
+  "change": 0
+}

@@ -1,0 +1,482 @@
+# Sakatsu POS システム仕様書（2025年6月5日マージ版）
+
+## 1. システム概要
+
+* **対象店舗**：さかつうギャラリー実店舗
+* **連携先**：Next Engine API
+* **目的**：POS操作から会計・在庫管理・日次／月次バックオフィス処理までを一気通貫で担う。
+* **使用デバイス**：Surface 7（Windows 11）、Windowsバッチ起動可能。
+* **主要機能**：
+
+  1. 販売登録（バーコード・手入力）
+  2. 決済対応（現金・クレジットカード・QR決済確認）
+  3. レシート印刷（サーマルプリンタ連携）
+  4. 在庫同期（即時連携・日次連携）
+  5. バックオフィス処理（日次処理、月次処理）
+  6. ログ／レポート出力
+  7. オフライン対応（オフライン時はローカルDBに保存し、再接続後に同期）
+
+## 2. ファイル／フォルダ構成
+
+```
+Sakatsu_POS_Project/
+├─ nextengine/
+│   ├─ inventory_updater.py        # Next Engine 在庫更新ロジック（変更あり）
+│   ├─ sales_uploader.py           # 日次売上アップロードロジック（新規）
+│   └─ ...
+├─ ui/
+│   ├─ pos_gui.py                  # POS メイン画面（変更あり）
+│   ├─ daily_tasks.py              # 日次処理画面（変更あり）
+│   └─ ...
+├─ utils/
+│   ├─ file_utils.py               # ファイル入出力ユーティリティ（新規）
+│   └─ ...
+├─ parse_callback_auto.py          # OAuth コールバック処理（新規）
+├─ scripts/
+│   ├─ reflect_changes.sh          # Git 反映用自動スクリプト（新規）
+│   ├─ start_pos.bat               # POS 起動バッチ（新規）
+│   ├─ parse_and_update.bat        # 同期リフレッシュバッチ（新規）
+│   └─ ...
+├─ .env.example                    # 環境変数ひな形（更新）
+├─ .env.test                       # テスト環境用設定（更新）
+├─ .env                            # 本番環境用設定（更新）
+├─ requirements.txt                # 依存パッケージ定義（更新）
+├─ reports/                        # CSV レポート出力フォルダ（追加）
+├─ logs/                           # ログ出力フォルダ（追加）
+└─ その他ファイル／フォルダ
+```
+
+## 3. 環境構築（開発環境／本番環境）
+
+### 3.1 開発環境
+
+* **OS**：Windows 10/11 或いは Linux（要 Python 3.13.2 環境）
+* **Python バージョン**：3.13.2
+* **仮想環境**：venv または Anaconda 推奨
+* **依存パッケージ**：`requirements.txt` 参照
+
+  * 例：`requests`、`pandas`、`PyYAML`、`nextengine-sdk` 等
+* **環境変数**（`.env.example` 参照）
+
+  * `NE_ACCESS_TOKEN=`       # 初回は空。OAuth認可後に `parse_callback_auto.py` が更新。
+  * `NE_REFRESH_TOKEN=`      # 同上
+  * `APP_ENV=development`    # 開発\:test／本番\:production
+  * `LOG_LEVEL=DEBUG`        # DEBUG, INFO, WARNING, ERROR
+  * `TEST_NE_CLIENT_ID=`     # Next Engine テスト用クライアントID（開発時のみ）
+  * `TEST_NE_CLIENT_SECRET=` # 同上
+
+#### インストール手順
+
+1. リポジトリをクローン
+
+   ```bash
+   git clone https://example.com/Sakatsu_POS_Project.git
+   cd Sakatsu_POS_Project
+   ```
+2. 仮想環境作成
+
+   ```bash
+   python -m venv venv
+   # Windows:
+   venv\Scripts\activate
+   # Linux/macOS:
+   source venv/bin/activate
+   ```
+3. パッケージインストール
+
+   ```bash
+   pip install --upgrade pip
+   pip install -r requirements.txt
+   ```
+4. `.env.example` をコピーして `.env` 作成し、本番・テストのクライアントID・シークレット・トークンを入力
+
+   ```bash
+   cp .env.example .env
+   cp .env.example .env.test
+   # 必要なキーを設定
+   ```
+5. **データベース接続**（SQLite／PostgreSQL など）
+
+   * `DATABASE_URL` 環境変数を設定（例：`sqlite:///./sakatsu_pos.db`）
+   * マイグレーションツール（Alembic 等）がある場合はリポジトリ内 `alembic/` フォルダを参照
+
+### 3.2 本番環境
+
+* **OS**：Linux サーバ推奨（例：さくらインターネット VPS）
+* **Python バージョン**：開発環境と同様の 3.13.2 を推奨
+* **依存ライブラリ**：`requirements.txt` のみで再現可能
+* **環境変数**：`.env` を本番用に配置（`APP_ENV=production`）
+* **SSL／ドメイン設定**：POS サーバで HTTPS 通信を受け付けるために証明書を設定（Let's Encrypt 等）、Next Engine のリダイレクト URI 登録を `https://{ドメイン}/callback` に更新。
+* **起動バッチ**：`scripts/start_pos.bat`（Windows）または `systemd` で Python サービスを常駐起動
+* **ログ出力先**：`logs/` フォルダに `logic.sales_recorder.log` などを出力。ログローテーションの設定推奨
+
+## 4. 機能詳細
+
+### 4.1 販売登録機能
+
+* **バーコード対応**：Code 39, JAN/EAN コードを `goods_id` または `goods_6_item` にマッピング
+* **バーコード未登録商品**：金額手入力で "その他商品" として登録し、売上レコード作成
+* **手入力**：商品コード直接入力やキーワード検索で検索結果表示
+* **値引き**：%指定 or 数値指定で合計金額を計算
+* **領収書発行**：簡易領収書をレシートプリンタで印刷
+* **カスタマーディスプレイ表示**：商品名・金額・合計金額をリアルタイム表示
+* **キャッシュドロワ**：会計確定時にドロワを開閉する制御信号を送信
+* **入出金記録**：売上に関係しない入出金を "その他入出金" として登録可能（レシート印字）
+
+### 4.2 在庫同期機能（五月雨式・即時同期）
+
+* **タイミング**：会計完了ごとに即時同期
+* **処理内容**：
+
+  1. 会計レコードをローカル DB に保存
+  2. `InventoryUpdater.update_from_record()` を呼び出し、Next Engine 側の在庫数を API で減算・更新
+  3. 成功／失敗をログファイルに出力し、UI に通知（モーダルまたはステータスバー）
+  4. 失敗時はエラーコードを解析し、指定回数リトライ。リトライ間隔：5分間隔で最大3回
+* **リトライポリシー**：
+
+  * HTTP 5xx エラーやタイムアウトの場合のみリトライ
+  * 4xx エラー（認証切れ、権限不足など）は即時エラー表示
+* **エラー通知**：
+
+  * 画面右下にポップアップ通知
+  * `logs/logic.inventory_updater.log` に詳細出力
+* **同期結果レポート**：
+
+  * 成功時：`reports/inventory_success_{YYYYMMDD_HHMMSS}.csv` 出力（商品ID、在庫前後数）
+  * 失敗時：`reports/inventory_error_{YYYYMMDD_HHMMSS}.csv` 出力（エラー詳細含む）
+
+### 4.3 日次処理（手動トリガー）
+
+* **操作方法**：POS UI の "日次処理実行" ボタンを押下
+* **レシート印刷項目**（人間が理解できる 4 つの金額）
+
+  1. 現金売上
+  2. その他売上
+  3. 総合計売上
+  4. 売上に関係しない現金入出金
+* **API 連携①**：当日の売上商品・数量をまとめ、"実店舗" という仮想サイトの受注データを Next Engine へ CSV アップロード
+
+  * `sales_uploader.py` にて以下を実行
+
+    1. ローカル DB から当日の売上レコードを抽出
+    2. CSV フォーマットを作成（Next Engine 仕様準拠）
+    3. Next Engine 受注一括登録 API へ POST
+    4. 成功／失敗を `reports/sales_upload_{YYYYMMDD}.csv` に記録
+* **API 連携②**：Next Engine から最新の商品マスタをダウンロードし、POS システム内の商品情報を更新
+
+  * 毎日 23:55 に自動で実行（バッチは `parse_and_update.bat` 経由）
+  * マスタ変更点：
+
+    * `goods_id`、`jan_code`、商品名、価格、在庫閾値など
+    * 差分更新：`utils/file_utils.py` の `merge_product_master()` にて古いマスタと突合し、更新／追加／削除を反映
+  * 更新結果を `logs/product_master_update.log` に記録
+
+### 4.4 月次処理（手動トリガー）
+
+* **操作方法**：POS UI 上部メニューの "月次処理実行" ボタンを押下
+* **要件**：日次同様の 4 つの金額をレシート印刷できれば十分
+
+  * 実装は日次処理と同じロジックを利用
+  * 日次集計期間を "当月" として処理をまとめる
+  * 月次レポートは `reports/monthly_report_{YYYYMM}.csv` に出力
+
+## 5. 認証・OAuth フロー
+
+* **OAuth 設定**：Next Engine 開発者管理画面にて以下を登録済み
+
+  * リダイレクト URI：`https://{ドメイン}/callback` （開発用 `http://127.0.0.1:8443/callback` も可）
+  * クライアント ID／シークレット：環境変数 `NE_CLIENT_ID`／`NE_CLIENT_SECRET` から取得
+* **トークン更新**：
+
+  1. `parse_callback_auto.py` が初回実行時に認可コードを受信し、`NE_ACCESS_TOKEN`／`NE_REFRESH_TOKEN` を `.env` に書き込み
+  2. `inventory_updater.py`、`sales_uploader.py` など各モジュールは `NE_ACCESS_TOKEN` を参照し、期限切れ時は `NE_REFRESH_TOKEN` で自動更新
+* **トークン保存先**：`.env` ファイル（Git 管理除外）
+
+## 6. モジュール構成と責務
+
+### 6.1 nextengine/inventory\_updater.py
+
+* **役割**：POS で生成された会計レコードを受け取り、Next Engine 在庫を即時更新
+* **主な関数／クラス**：
+
+  * `InventoryUpdater.__init__(token_env, simulate=False)`：認証トークン読み込み、シミュレーションモード設定
+  * `InventoryUpdater.update_from_record(record)`：1 レコード分の在庫減算 API 呼び出し
+  * `InventoryUpdater.update_all(data_dir)`：`data_dir` 内の未同期レコードを一括処理
+  * 例外処理：`InventoryAPIError`（HTTP エラー）、`MappingNotFoundError`（商品コード未登録）
+
+#### 変更点（2025-06-05 マージ）
+
+* リトライポリシー追加（5 分間隔×3 回）
+* レポート出力機能追加（`reports/` フォルダに CSV ログ）
+* ログレベル制御（`LOG_LEVEL` に従い、DEBUG/INFO 出力）
+
+### 6.2 nextengine/sales\_uploader.py
+
+* **役割**：日次売上をまとめて Next Engine に受注データとして登録
+* **主な関数／クラス**：
+
+  * `SalesUploader.__init__(token_env)`：認証トークン読み込み
+  * `SalesUploader.gather_daily_records(date)`：指定日の売上レコードをローカル DB から取得
+  * `SalesUploader.generate_csv(records, output_path)`：Next Engine CSV 形式で書き出し
+  * `SalesUploader.upload_csv(csv_path)`：API コール実行、結果を返却
+  * 例外処理：`SalesUploadError`（フォーマットエラー／HTTP エラー）
+
+#### 変更点（2025-06-05 マージ）
+
+* 異常時の自動リトライ（3 回）
+* 成功／失敗レポート出力（`reports/sales_upload_*.csv`）
+
+### 6.3 utils/file\_utils.py
+
+* **役割**：ファイル操作全般のユーティリティ（CSV マージ、バックアップ、差分検出）
+* **主な関数**：
+
+  * `merge_product_master(old_master, new_master)`：商品マスタの差分マージ
+  * `backup_file(src_path, backup_dir)`：指定ファイルをバックアップフォルダへ移動
+  * `read_csv_as_dict(path)`：CSV を辞書形式で読み込み
+  * `write_dict_to_csv(data, path, fieldnames)`：辞書リストから CSV 出力
+
+#### 変更点（2025-06-05 マージ）
+
+* `merge_product_master()` において、Next Engine から取得した JSON マスタ→CSV 変換処理を追加
+* バックアップ時に日付付きフォルダ自動生成機能
+
+### 6.4 ui/pos\_gui.py
+
+* **役割**：POS メイン画面の表示・操作ロジック（Tkinter or PyQt など）
+* **主な機能**：
+
+  1. 商品スキャン／手入力欄
+  2. カート一覧表示（商品名、単価、個数、金額計算）
+  3. 決済ボタン（現金／クレカ／QR）
+  4. レシート印刷ボタン
+  5. 日次／月次処理ボタン
+* **変更点（2025-06-05 マージ）**：
+
+  * レシート印刷プレビュー画面追加
+  * 日次処理実行後のモーダルダイアログ実装
+  * UI テーマをライトモードに更新（カラーコード変更）
+
+### 6.5 ui/daily\_tasks.py
+
+* **役割**：日次処理画面の詳細表示・ステータス管理
+* **主な機能**：
+
+  * 当日売上○件、売上合計○円のプレビュー
+  * Next Engine 連携ボタン（アップロード進行状況プログレスバー）
+  * 成功／失敗ログ一覧表示
+  * CSV レポートダウンロードボタン
+
+#### 変更点（2025-06-05 マージ）
+
+* プログレスバーのアニメーション調整
+* ログ表示用タブ形式 UI 肩部設計変更
+
+### 6.6 parse\_callback\_auto.py
+
+* **役割**：Next Engine OAuth 認可後のコールバックを受け、`.env` にアクセストークン・リフレッシュトークンを保存
+* **主な流れ**：
+
+  1. HTTP サーバとしてローカル起動（ポート 8443）
+  2. ブラウザで認可画面からリダイレクトされた際にクエリパラメータ `code` を受信
+  3. `code` を用いてアクセストークン取得 API 呼び出し
+  4. `.env` ファイル書き換え
+
+## 7. バッチ／スクリプト類
+
+### 7.1 reflect\_changes.sh
+
+* **役割**：Git への変更自動コミット・プッシュ
+* **流れ**：
+
+  1. `git add .`
+  2. `git commit -m "Auto commit: update $(date '+%Y-%m-%d %H:%M:%S')"`
+  3. `git push origin main`
+
+### 7.2 start\_pos.bat
+
+* **役割**：Windows 環境で POS アプリケーションを起動
+* **内容**：
+
+  ```bat
+  @echo off
+  cd /d %~dp0
+  call venv\Scripts\activate
+  python ui\pos_gui.py
+  ```
+
+### 7.3 parse\_and\_update.bat
+
+* **役割**：夜間のマスタ更新自動実行および在庫同期リフレッシュ
+* **内容**：
+
+  ```bat
+  @echo off
+  cd /d %~dp0
+  call venv\Scripts\activate
+  python parse_callback_auto.py
+  python nextengine\inventory_updater.py --all
+  python nextengine\sales_uploader.py --daily
+  ```
+
+## 8. .env ファイル仕様
+
+```dotenv
+# OAuth トークン（初回は空欄。認可後に parse_callback_auto が更新）
+NE_ACCESS_TOKEN=
+NE_REFRESH_TOKEN=
+
+# アプリ環境設定
+APP_ENV=development      # 開発:development / 本番:production
+LOG_LEVEL=DEBUG          # DEBUG, INFO, WARNING, ERROR
+
+# Next Engine テスト環境用（開発時のみ）
+TEST_NE_CLIENT_ID=
+TEST_NE_CLIENT_SECRET=
+
+# Next Engine 本番環境用
+NE_CLIENT_ID=
+NE_CLIENT_SECRET=
+
+# データベース接続
+DATABASE_URL=sqlite:///./sakatsu_pos.db  # SQLite 例
+# DATABASE_URL=postgresql://user:pass@localhost:5432/sakatsu_prod
+```
+
+* `.env.test` は `APP_ENV=test` とし、テスト専用クライアントID／シークレットを設定。
+* 本番時はサーバに `.env` を配置し、`APP_ENV=production` に切り替え。
+
+## 9. ログ／レポート出力
+
+### 9.1 ログ
+
+* **ログレベル制御**：環境変数 `LOG_LEVEL` に従う
+* **ログ出力先**：`logs/` フォルダ直下
+
+  * `logic.inventory_updater.log`
+  * `logic.sales_uploader.log`
+  * `logic.pos_gui.log`
+  * `logic.daily_tasks.log`
+* **運用例**：
+
+  * `INFO` 以上を常時ログ出力
+  * `DEBUG` は開発環境でのみ有効
+  * 週次で古いログを `logs/archived/` に移動（スクリプトで自動化検討）
+
+### 9.2 レポート
+
+* **在庫同期レポート**：`reports/inventory_success_{YYYYMMDD_HHMMSS}.csv`、`reports/inventory_error_{YYYYMMDD_HHMMSS}.csv`
+* **売上アップロードレポート**：`reports/sales_upload_{YYYYMMDD}.csv`
+* **月次レポート**：`reports/monthly_report_{YYYYMM}.csv`
+* **フォーマット例**：
+
+  | 商品ID  | 商品名  | 更新前在庫 | 更新後在庫 | 結果 (SUCCESS/ERROR) |
+  | ----- | ---- | ----- | ----- | ------------------ |
+  | 12345 | ビル-6 | 10    | 9     | SUCCESS            |
+
+## 10. 日次／月次バックオフィス処理フロー
+
+1. ユーザーが POS 画面で "日次処理実行" ボタンをクリック
+2. `sales_uploader.py` にて当日売上を CSV 生成→Next Engine 受注一括登録 API 呼び出し
+3. 成功／失敗をログに出力し、UI に結果を表示
+4. `parse_and_update.bat` を夜間スケジューリング（タスクスケジューラ または cron）
+
+   * `parse_callback_auto.py` 実行（トークン更新）
+   * `inventory_updater.py --all` で当日残在庫をリフレッシュ
+   * `sales_uploader.py --daily` で念のため再アップロードチェック
+   * `utils/file_utils.py` でマスタ更新（差分マージ）→`ui` モジュールに反映
+
+## 11. 月次処理フロー
+
+1. ユーザーが POS 画面で "月次処理実行" ボタンをクリック
+2. `sales_uploader.py --monthly` で当月売上をまとめて CSV 生成→Next Engine 受注登録
+3. レシートで 4 つの金額（日次と同様）を印刷
+4. `reports/monthly_report_{YYYYMM}.csv` に集計結果を出力
+
+## 12. 開発方針・品質保証
+
+1. **現状把握**：変更前に必ず既存コードと仕様をレビューし、影響範囲を整理
+2. **影響範囲確認**：他モジュールへの影響がないか設計段階で把握し、必要あれば先に依存修正
+3. **ドキュメント反映**：コード変更と同時に README/仕様書に追記
+4. **テスト方針明示**：手動テスト手順や自動テストケースを提示
+
+   * **自動テスト**：`tests/` フォルダで pytest テストを実装
+   * **E2E テスト**：画面操作をスクリプト化（Selenium など検討）
+5. **品質保証プロセス**：
+
+   * UI 要件チェックリスト作成（`docs/ui_checklist.xlsx`）
+   * PR 時スクリーンショット添付
+   * マージ前に E2E テスト実行
+   * ドキュメント同期（この仕様書／README）
+6. **用語解釈ルール**：
+
+   * 「変更します」…既存実装に追加・ブラッシュアップ
+   * 「全面リセット」…既存実装を破棄し新規実装
+7. **モジュール単位での機能分割（SRP）**：
+
+   * 1 ファイル最大行数: 250 行
+   * 関数／メソッド数: 最大 10 個
+   * クラス数: 最大 3 個
+   * 関数長: 最大 30 行（複雑な処理はヘルパー関数化）
+   * 循環参照禁止、役割別フォルダ構成を厳守
+8. **ロギング利用とファイル名コメント**：
+
+   * 各モジュール先頭に:
+
+     ```python
+     # <モジュールのパス／ファイル名>
+     from logger import get_logger
+     log = get_logger(__name__)
+     ```
+
+## 13. 更新履歴・重要変更点（2025-06-05 マージ）
+
+* **nextengine/inventory\_updater.py**
+
+  * リトライ処理追加、レポート出力機能、ログレベル制御追加
+
+* **nextengine/sales\_uploader.py**
+
+  * 日次売上アップロード機能を新規追加、リトライ処理、レポート出力
+
+* **utils/file\_utils.py**
+
+  * 商品マスタ差分マージ時の JSON→CSV 変換、バックアップ機能強化
+
+* **ui/pos\_gui.py**
+
+  * レシート印刷プレビュー、モーダルダイアログ、UI カラーテーマ変更
+
+* **ui/daily\_tasks.py**
+
+  * プログレスバー表示改善、ログ表示タブ UI 改修
+
+* **parse\_callback\_auto.py**
+
+  * OAuth コールバック取得→`.env` 更新機能を追加
+
+* **スクリプト類**
+
+  * `reflect_changes.sh`、`start_pos.bat`、`parse_and_update.bat` を新規追加
+
+* **依存パッケージ更新**
+
+  * `requirements.txt` を更新し、`requests>=2.28.0`、`pandas>=1.5.0` など最新版に対応
+
+* **フォルダ構成**
+
+  * `reports/` フォルダを新設し、各種 CSV 出力先を統一
+  * `logs/` フォルダを新設し、モジュール別ログファイルを配置
+
+## 14. 未解決／要調査項目
+
+1. **マイグレーション履歴**：Alembic などのマイグレーションツール設定／既存リビジョンを確認
+2. **UI テスト**：Selenium などによる E2E テスト実装方針
+3. **運用環境のバックアップポリシー**：DB スナップショットとログバッキングアップ
+4. **QR 決済事業者**：実機検証と Webhook の受信方法確定
+5. **サーマルプリンタモデル**：印字幅（58mm／80mm）確定後、レイアウト調整
+6. **エラーハンドリング詳細**：API エラーコード別の振る舞い定義（例：在庫不足／認証切れ／Rate Limit）
+
+---
+
+**以上が 2025年6月5日 現在の最新マージ版仕様書です。**

@@ -1,0 +1,54 @@
+# config/receipt_layout.yaml
+
+header:
+  - image: "config/logo.png"
+    align: center
+  - text: "　"
+  - text: "領　　収　　書"
+    align: center
+    weight: bold
+    size: large
+  - text: "　"
+  - text: "有限会社さかつう"
+    align: center
+  - text: "登録番号：T2013302004491"
+    align: center
+  - text: "住所: 〒170-0002　東京都豊島区巣鴨3-25-13"
+    align: center
+  - text: "電話: 03-3949-2892（10:30～19:00 木曜休み）"
+    align: center
+  - text: "https://sakatsu.jp/"
+    align: center
+  - text: ""
+
+body:
+  datetime:
+    label: "日時:"
+    format: "%Y/%m/%d %H:%M:%S"
+  separator: "--------------------------------"
+  columns:
+    - name: "商品名"
+      width: 25
+      align: left
+    - name: "数"
+      width: 3
+      align: right
+    - name: "単価"
+      width: 10
+      align: right
+    - name: "金額"
+      width: 10
+      align: right
+
+footer:
+  - text: '合計 {total:,}'
+    align: right
+    weight: bold
+  - text: ""
+  - text: '{pay_method_name} {pay_amount:,}'
+    align: right
+  - text: 'お釣り {change:,}'
+    align: right
+  - text: ""
+  - text: "ご利用いただき、誠にありがとうございました。"
+    align: center

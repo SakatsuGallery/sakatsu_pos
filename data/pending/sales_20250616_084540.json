@@ -1,0 +1,32 @@
+{
+  "transaction_id": "20250616_084540",
+  "timestamp": "2025-06-16T08:45:40",
+  "cart": [
+    {
+      "goods_id": "4562469774350",
+      "name": "磁気スイッチ付LEDモジュール3セット：レッド　：　ビットトレードワン　電子パーツ　ノンスケール　ADMGLRD3",
+      "price": 1375,
+      "quantity": 1
+    },
+    {
+      "goods_id": "4562469774374",
+      "name": "磁気スイッチ付LEDモジュール3セット：ホワイト　：　ビットトレードワン　電子パーツ　ノンスケール　ADMGLWH3",
+      "price": 1375,
+      "quantity": 1
+    },
+    {
+      "goods_id": "",
+      "name": "4573188328816",
+      "price": 990,
+      "quantity": 1
+    }
+  ],
+  "total_due": 3740,
+  "payments": [
+    {
+      "method": "現金",
+      "amount": 5000.0
+    }
+  ],
+  "change": 1260
+}
